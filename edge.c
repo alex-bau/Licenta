@@ -135,14 +135,14 @@ void process_message()
 }
 
 /* Go through the list of neighbors, remove entries older than a threshold,
- * currently 32 seconds.
+ * currently 10 seconds.
  */
 void purgeNeighbors(void)
 {
   int8_t i;
 
   for (i = mydata->N_Neighbors-1; i >= 0; i--)
-    if (kilo_ticks - mydata->neighbors[i].timestamp  > 1024) //32 ticks = 1 s
+    if (kilo_ticks - mydata->neighbors[i].timestamp  > 320) //32 ticks = 1 s
       { //this one is too old.
 	mydata->neighbors[i] = mydata->neighbors[mydata->N_Neighbors-1];
 	//replace it by the last entry
@@ -274,58 +274,70 @@ int isTunnel()
   return 0;
 }
 
+void moveLeft()
+{
+	if(get_move_type() == LEFT)
+		spinup_motors();
+	set_motors(0, kilo_turn_right);
+	set_move_type(RIGHT);
+}
+
+void moveRight()
+{
+	if(get_move_type() == RIGHT)
+	  spinup_motors();
+	set_motors(kilo_turn_left, 0);
+	set_move_type(LEFT);
+}
+
 int getDistTunnel()
 {
-	return (find_nearest_N_distR - find_nearest_N_distL); 
+	return (find_nearest_N_distR() - find_nearest_N_distL()); 
 }
 
 void follow_edge()
 {
   uint8_t desired_dist = 45;
   uint8_t i, pD;
+  printf("Tunnel: %d L-R: %d LR?: %d\n", isTunnel(), getDistTunnel(), get_bot_type());
   if( isTunnel() )
   {
-    i = 12;
-    if(get_bot_type() == RIGHT)
+    i = 6;
+    pD = getDistTunnel();
+    if( pD > i )
     {
-		pD = getDistTunnel();
-		if( pD > i )
+		if( get_bot_type() == RIGHT )
 		{
-		  if(get_move_type() == LEFT)
-		  spinup_motors();
-		  set_motors(0, kilo_turn_right);
-		  set_move_type(RIGHT);
+		  moveLeft();
+		  set_color(RGB(3,3,0));
+		  printf("-> Stanga\n");
 		  if( pD < getDistTunnel() )
 			set_bot_type(LEFT);
 		}
-		if( -pD > i )
+		else
 		{
-		  if(get_move_type() == RIGHT)
-		  spinup_motors();
-		  set_motors(kilo_turn_left, 0);
-		  set_move_type(LEFT);
+		  moveRight();
+		  set_color(RGB(0,3,0));
+		  printf("<- Stanga\n");
 		  if( pD > getDistTunnel() )
-			set_bot_type(LEFT);
-		}
-	}
-	else
-	{
-		pD = getDistTunnel();
-		if( pD > i )
-		{
-		  if(get_move_type() == RIGHT)
-		  spinup_motors();
-		  set_motors(0, kilo_turn_left);
-		  set_move_type(LEFT);
-		  if( pD < getDistTunnel() )
 			set_bot_type(RIGHT);
 		}
-		if( -pD > i )
+	}
+	if( -pD > i )
+	{
+		if( get_bot_type() == RIGHT )
 		{
-		  if(get_move_type() == LEFT)
-		  spinup_motors();
-		  set_motors(kilo_turn_right, 0);
-		  set_move_type(RIGHT);
+		  moveRight();
+		  if( pD < getDistTunnel() )
+		  printf("-> Dreapta\n");
+		  set_color(RGB(0,3,3));
+			set_bot_type(LEFT);
+		}
+		else
+		{
+		  moveLeft();
+		  set_color(RGB(0,0,3));
+		  printf("<- Dreapta\n");
 		  if( pD > getDistTunnel() )
 			set_bot_type(RIGHT);
 		}
@@ -335,16 +347,12 @@ void follow_edge()
       {
 		if(get_move_type() == LEFT)
 		{
-		  spinup_motors();
-		  set_motors(0, kilo_turn_right);
-		  set_move_type(RIGHT);
+		  moveLeft();
 		  set_color(RGB(1,0,0));
 		}
 		else
 		{
-		  spinup_motors();
-		  set_motors(kilo_turn_left, 0);
-		  set_move_type(LEFT);
+		  moveRight();
 		  set_color(RGB(0,1,0));
 		}
       }
