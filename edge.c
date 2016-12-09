@@ -3,6 +3,8 @@
  * Ivica Slavkov, Fredrik Jansson  2015
  */
 
+#include <stdlib.h>
+
 #include <math.h>
 
 #include <kilombo.h>
@@ -87,10 +89,14 @@ int get_move_type(void)
   return mydata->move_type;
 }
 
-
 void set_bot_type(int type)
 {
   mydata->bot_type = type;
+}
+
+int get_bot_type(void)
+{
+	return mydata->bot_type;
 }
 /* Process a received message at the front of the ring buffer.
  * Go through the list of neighbors. If the message is from a bot
@@ -129,7 +135,7 @@ void process_message()
 }
 
 /* Go through the list of neighbors, remove entries older than a threshold,
- * currently 2 seconds.
+ * currently 32 seconds.
  */
 void purgeNeighbors(void)
 {
@@ -268,48 +274,79 @@ int isTunnel()
   return 0;
 }
 
+int getDistTunnel()
+{
+	return (find_nearest_N_distR - find_nearest_N_distL); 
+}
+
 void follow_edge()
 {
   uint8_t desired_dist = 45;
-  uint8_t i;
-  uint8_t L = 0;
-  uint8_t R = 0;
+  uint8_t i, pD;
   if( isTunnel() )
   {
     i = 12;
-    L = find_nearest_N_distL();
-    R = find_nearest_N_distR();
-    if((R-L)> i)
+    if(get_bot_type() == RIGHT)
     {
-      if(get_move_type() == LEFT)
-      spinup_motors();
-      set_motors(0, kilo_turn_right);
-      set_move_type(RIGHT);
-    }
-    if((L-R)> i)
-    {
-      if(get_move_type() == RIGHT)
-      spinup_motors();
-      set_motors(kilo_turn_left, 0);
-      set_move_type(LEFT);
-    }
-    if( ((R-L) < i) || ((L-R) < i) )
-    {
-      {
-	if(get_move_type() == LEFT)
-	{
-	  spinup_motors();
-	  set_motors(0, kilo_turn_right);
-	  set_move_type(RIGHT);
-	  set_color(RGB(1,0,0));
+		pD = getDistTunnel();
+		if( pD > i )
+		{
+		  if(get_move_type() == LEFT)
+		  spinup_motors();
+		  set_motors(0, kilo_turn_right);
+		  set_move_type(RIGHT);
+		  if( pD < getDistTunnel() )
+			set_bot_type(LEFT);
+		}
+		if( -pD > i )
+		{
+		  if(get_move_type() == RIGHT)
+		  spinup_motors();
+		  set_motors(kilo_turn_left, 0);
+		  set_move_type(LEFT);
+		  if( pD > getDistTunnel() )
+			set_bot_type(LEFT);
+		}
 	}
 	else
 	{
-	  spinup_motors();
-	  set_motors(kilo_turn_left, 0);
-	  set_move_type(LEFT);
-	  set_color(RGB(0,1,0));
+		pD = getDistTunnel();
+		if( pD > i )
+		{
+		  if(get_move_type() == RIGHT)
+		  spinup_motors();
+		  set_motors(0, kilo_turn_left);
+		  set_move_type(LEFT);
+		  if( pD < getDistTunnel() )
+			set_bot_type(RIGHT);
+		}
+		if( -pD > i )
+		{
+		  if(get_move_type() == LEFT)
+		  spinup_motors();
+		  set_motors(kilo_turn_right, 0);
+		  set_move_type(RIGHT);
+		  if( pD > getDistTunnel() )
+			set_bot_type(RIGHT);
+		}
 	}
+    if( ( pD < i ) || ( -pD < i ) )
+    {
+      {
+		if(get_move_type() == LEFT)
+		{
+		  spinup_motors();
+		  set_motors(0, kilo_turn_right);
+		  set_move_type(RIGHT);
+		  set_color(RGB(1,0,0));
+		}
+		else
+		{
+		  spinup_motors();
+		  set_motors(kilo_turn_left, 0);
+		  set_move_type(LEFT);
+		  set_color(RGB(0,1,0));
+		}
       }
     }
   }
@@ -334,11 +371,6 @@ void follow_edge()
   }
 }
 
-void follow_tunnel()
-{
-  
-}
-
 
 void loop()
 {
@@ -346,6 +378,7 @@ void loop()
   receive_inputs();
   if(kilo_uid == 0)
     {
+	  set_bot_type(RIGHT);
       set_color(RGB(3,0,0));
       follow_edge();
     }
@@ -388,8 +421,8 @@ char *botinfo(void)
   n = sprintf (p, "ID: %d ", kilo_uid);
   p += n;
 
-  n = sprintf (p, "Ns: %d, dist: %d Tunnel: %d L-R: %d\n", mydata->N_Neighbors, find_nearest_N_dist(), 
-			      isTunnel(), find_nearest_N_distL() - find_nearest_N_distR());
+  n = sprintf (p, "Ns: %d, dist: %d Tunnel: %d L-R: %d LR?: %d\n", mydata->N_Neighbors, find_nearest_N_dist(), 
+			      isTunnel(), getDistTunnel(), get_bot_type());
   p += n;
 
   return botinfo_buffer;
